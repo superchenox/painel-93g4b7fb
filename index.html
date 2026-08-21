@@ -179,7 +179,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
   font-family:'Montserrat',sans-serif; font-size:11.5px; letter-spacing:0.3px; padding:7px 14px;
   border-radius:16px; border:1px solid var(--paper-line); background:transparent; color:var(--ink-soft); cursor:pointer;
 }
-.viewmode-btn:hover{ background:#EAF3FA; }
+.viewmode-btn:hover{ background:var(--paper-raised); }
 .viewmode-btn.active{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
 .list-view{ display:none; }
 .list-empty{ font-size:13px; color:var(--ink-soft); padding:20px 0; }
@@ -190,7 +190,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
 }
 .list-row{ cursor:pointer; }
 .list-row:hover{ background:var(--paper-raised); }
-.list-row td{ padding:9px 10px; border-bottom:1px solid #EAF3FA; vertical-align:middle; }
+.list-row td{ padding:9px 10px; border-bottom:1px solid var(--paper-line); vertical-align:middle; }
 .list-row.lt-done{ opacity:0.55; }
 .lt-n{ width:32px; color:#5C7C9C; font-family:'Montserrat',sans-serif; }
 .lt-day{ width:96px; font-family:'Montserrat',sans-serif; font-size:11px; text-transform:uppercase; color:var(--ink-soft); }
@@ -201,7 +201,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
 .lt-done-badge{ color:#5C8A5C; }
 .lt-type{ width:100px; font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
 .lt-progress{ width:140px; }
-.lt-bar{ width:100%; height:5px; background:#EAF3FA; border-radius:3px; overflow:hidden; margin-bottom:3px; }
+.lt-bar{ width:100%; height:5px; background:var(--paper-raised); border-radius:3px; overflow:hidden; margin-bottom:3px; }
 .lt-bar span{ display:block; height:100%; background:var(--gold); }
 .lt-progress-txt{ font-family:'Montserrat',sans-serif; font-size:10.5px; color:#5C7C9C; }
 .pool-header{
@@ -316,7 +316,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
 .ctopic{ font-size:12.6px; line-height:1.32; color:var(--ink); font-weight:500; }
 .card-meta{ display:flex; align-items:center; justify-content:space-between; margin-top:7px; gap:6px; }
 .card-badge{
-  font-family:'Montserrat',sans-serif; font-size:9.5px; background:#EAF3FA; color:var(--ink-soft);
+  font-family:'Montserrat',sans-serif; font-size:9.5px; background:var(--paper-raised); color:var(--ink-soft);
   padding:1.5px 5px; border-radius:2px; border:1px solid var(--paper-line);
 }
 .card-progress{ font-family:'Montserrat',sans-serif; font-size:10.5px; color:var(--ink-soft); }
@@ -352,7 +352,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
   position:absolute; top:14px; right:14px; width:26px; height:26px; border:none; background:transparent;
   cursor:pointer; color:var(--ink-soft); font-size:18px; line-height:1; border-radius:4px;
 }
-.modal-close:hover{ background:#EAF3FA; }
+.modal-close:hover{ background:var(--paper-raised); }
 .modal-body{ padding:16px 20px 20px; }
 
 .battery-label{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
@@ -398,7 +398,7 @@ button:focus-visible, [tabindex]:focus-visible, input:focus-visible{ outline:var
 .btn-primary:hover{ background:#C4993A; }
 .btn-primary.running{ background:var(--brick); color:#fff; }
 .btn-ghost{ background:transparent; border-color:var(--paper-line); color:var(--ink-soft); }
-.btn-ghost:hover{ background:#EAF3FA; }
+.btn-ghost:hover{ background:var(--paper-raised); }
 .manual-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .manual-row input{
   width:52px; padding:6px 8px; border:1px solid var(--paper-line); border-radius:4px; font-family:'Montserrat',sans-serif; font-size:13px; background:#fff;
@@ -791,6 +791,11 @@ nav.subnav.show{ display:flex; }
 }
 .theme-toggle-btn:hover{ border-color:#38BDF8; color:#38BDF8; }
 
+[data-theme="dark"] .daycol.dragover{ background:#1E3A57; }
+[data-theme="dark"] .sq{ background:#1E3A57; border-color:#2C4C70; }
+[data-theme="dark"] .rq-feedback.ok{ background:#0F3D2A; }
+[data-theme="dark"] .rq-feedback.bad{ background:#4A1F1C; }
+[data-theme="dark"] .rq-mc-tag{ background:#12233A; border-color:#2C4C70; }
 </style>
 </head>
 <body>
