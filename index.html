@@ -1122,7 +1122,8 @@ const TAG_COLOR_PALETTE = ['#D9A83B','#1E4FA3','#4A7FA6','#5C8A5C','#8A6BB0','#B
 function defaultState(deletedQuestionIndices){
   deletedQuestionIndices = deletedQuestionIndices || {};
   const s = { weeks:{}, cards:{}, dynamicActs:{}, cycleCounter:{}, simulados:[], lastActivity:{}, deletedQuestionIndices, personalNotes:{},
-              tagDefs: JSON.parse(JSON.stringify(DEFAULT_TAG_DEFS)), cardTags: {} };
+              tagDefs: JSON.parse(JSON.stringify(DEFAULT_TAG_DEFS)), cardTags: {},
+              cadernoErrosCounter: 0, cadernoFavoritasCounter: 0 };
   ALL_WEEK_KEYS.forEach(k => { s.weeks[k] = { pool:[], days:[[],[],[],[],[],[],[]] }; });
   WEEKS.forEach(w => {
     s.weeks[w.id].pool = w.acts.map(a => a.id);
@@ -2981,6 +2982,27 @@ function weeksFromFirestoreSafe(weeksSafe){
   return out;
 }
 
+// Rede de segurança geral: o Firestore recusa QUALQUER campo com valor `undefined`
+// em qualquer nível (só aceita `null` ou a ausência do campo). Como o state tem
+// muitos campos opcionais espalhados pelo código (contadores, atributos de questões
+// dinâmicas, etc.), em vez de caçar cada um manualmente, essa função varre o payload
+// inteiro recursivamente e troca qualquer `undefined` por `null` — assim um campo
+// esquecido no futuro nunca mais derruba a sincronização inteira.
+function deepStripUndefined(value){
+  if(Array.isArray(value)){
+    return value.map(v => v === undefined ? null : deepStripUndefined(v));
+  }
+  if(value && typeof value === 'object'){
+    const out = {};
+    Object.keys(value).forEach(k=>{
+      const v = value[k];
+      out[k] = v === undefined ? null : deepStripUndefined(v);
+    });
+    return out;
+  }
+  return value;
+}
+
 let cloudSaveTimer = null;
 let lastPushedSyncedAt = null;
 async function flushCloudSaveNow(){
@@ -2991,7 +3013,7 @@ async function flushCloudSaveNow(){
     payload.weeks = weeksToFirestoreSafe(payload.weeks);
     payload._syncedAt = Date.now();
     lastPushedSyncedAt = payload._syncedAt;
-    await firestoreDocRef().set(payload);
+    await firestoreDocRef().set(deepStripUndefined(payload));
     setSyncStatus('synced', payload._syncedAt);
   }catch(e){
     console.warn('Falha ao sincronizar com a nuvem:', e);
