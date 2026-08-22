@@ -2953,6 +2953,34 @@ function firestoreDocRef(){
   return fbDb.collection('users').doc(currentUid).collection('dossie').doc('state');
 }
 
+// Firestore rejeita arrays diretamente dentro de arrays (só aceita array dentro de
+// map/objeto). `state.weeks[chave].days` é um array de 7 arrays (um por dia da
+// semana), o que é válido pro localStorage mas quebra o .set() do Firestore com
+// "Nested arrays are not supported". Essas duas funções convertem esse pedaço pra
+// um formato seguro (objeto com chaves d0..d6) só na hora de mandar pra nuvem, e
+// desfazem a conversão assim que os dados voltam — o resto do app nunca sabe que
+// isso existe, continua trabalhando sempre com arrays normalmente.
+function weeksToFirestoreSafe(weeks){
+  const out = {};
+  Object.keys(weeks || {}).forEach(k=>{
+    const w = weeks[k] || {};
+    const daysObj = {};
+    (w.days || []).forEach((day,i)=>{ daysObj['d'+i] = day || []; });
+    out[k] = { pool: w.pool || [], days: daysObj };
+  });
+  return out;
+}
+function weeksFromFirestoreSafe(weeksSafe){
+  const out = {};
+  Object.keys(weeksSafe || {}).forEach(k=>{
+    const w = weeksSafe[k] || {};
+    const days = [];
+    for(let i=0;i<7;i++){ days.push((w.days && w.days['d'+i]) || []); }
+    out[k] = { pool: w.pool || [], days };
+  });
+  return out;
+}
+
 let cloudSaveTimer = null;
 let lastPushedSyncedAt = null;
 async function flushCloudSaveNow(){
@@ -2960,6 +2988,7 @@ async function flushCloudSaveNow(){
   if(!cloudSyncEnabled || !currentUid || applyingRemoteChange) return;
   try{
     const payload = stripStaticFieldsForStorage(state);
+    payload.weeks = weeksToFirestoreSafe(payload.weeks);
     payload._syncedAt = Date.now();
     lastPushedSyncedAt = payload._syncedAt;
     await firestoreDocRef().set(payload);
@@ -2990,7 +3019,11 @@ function setSyncStatus(status, ts){
 async function fetchCloudState(){
   try{
     const doc = await firestoreDocRef().get();
-    if(doc.exists) return doc.data();
+    if(doc.exists){
+      const data = doc.data();
+      if(data.weeks) data.weeks = weeksFromFirestoreSafe(data.weeks);
+      return data;
+    }
   }catch(e){ console.warn('Não foi possível buscar dados da nuvem:', e); }
   return null;
 }
@@ -3032,6 +3065,7 @@ function startRealtimeSync(){
       const remoteData = snapshot.data();
       // skip re-applying a change we ourselves just pushed and got echoed back
       if(remoteData._syncedAt && remoteData._syncedAt === lastPushedSyncedAt) return;
+      if(remoteData.weeks) remoteData.weeks = weeksFromFirestoreSafe(remoteData.weeks);
       applyingRemoteChange = true;
       try{
         state = migrateSquaresIfNeeded(hydrateStateFromStorage(remoteData));
