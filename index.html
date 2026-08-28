@@ -1403,7 +1403,8 @@ const TAG_COLOR_PALETTE = ['#D9A83B','#1E4FA3','#4A7FA6','#5C8A5C','#8A6BB0','#B
 function defaultState(deletedQuestionIndices){
   deletedQuestionIndices = deletedQuestionIndices || {};
   const s = { weeks:{}, cards:{}, dynamicActs:{}, cycleCounter:{}, simulados:[], lastActivity:{}, deletedQuestionIndices, personalNotes:{},
-              tagDefs: JSON.parse(JSON.stringify(DEFAULT_TAG_DEFS)), cardTags: {} };
+              tagDefs: JSON.parse(JSON.stringify(DEFAULT_TAG_DEFS)), cardTags: {},
+              cadernoErrosCounter: 0, cadernoFavoritasCounter: 0 };
   ALL_WEEK_KEYS.forEach(k => { s.weeks[k] = { pool:[], days:[[],[],[],[],[],[],[]] }; });
   WEEKS.forEach(w => {
     s.weeks[w.id].pool = w.acts.map(a => a.id);
@@ -4575,6 +4576,55 @@ function firestoreDocRef(){
   return fbDb.collection('users').doc(currentUid).collection('dossie').doc('state');
 }
 
+// Firestore rejeita arrays diretamente dentro de arrays (só aceita array dentro de
+// map/objeto). `state.weeks[chave].days` é um array de 7 arrays (um por dia da
+// semana), o que é válido pro localStorage mas quebra o .set() do Firestore com
+// "Nested arrays are not supported". Essas duas funções convertem esse pedaço pra
+// um formato seguro (objeto com chaves d0..d6) só na hora de mandar pra nuvem, e
+// desfazem a conversão assim que os dados voltam — o resto do app nunca sabe que
+// isso existe, continua trabalhando sempre com arrays normalmente.
+function weeksToFirestoreSafe(weeks){
+  const out = {};
+  Object.keys(weeks || {}).forEach(k=>{
+    const w = weeks[k] || {};
+    const daysObj = {};
+    (w.days || []).forEach((day,i)=>{ daysObj['d'+i] = day || []; });
+    out[k] = { pool: w.pool || [], days: daysObj };
+  });
+  return out;
+}
+function weeksFromFirestoreSafe(weeksSafe){
+  const out = {};
+  Object.keys(weeksSafe || {}).forEach(k=>{
+    const w = weeksSafe[k] || {};
+    const days = [];
+    for(let i=0;i<7;i++){ days.push((w.days && w.days['d'+i]) || []); }
+    out[k] = { pool: w.pool || [], days };
+  });
+  return out;
+}
+
+// Rede de segurança geral: o Firestore recusa QUALQUER campo com valor `undefined`
+// em qualquer nível (só aceita `null` ou a ausência do campo). Como o state tem
+// muitos campos opcionais espalhados pelo código (contadores, atributos de questões
+// dinâmicas, etc.), em vez de caçar cada um manualmente, essa função varre o payload
+// inteiro recursivamente e troca qualquer `undefined` por `null` — assim um campo
+// esquecido no futuro nunca mais derruba a sincronização inteira.
+function deepStripUndefined(value){
+  if(Array.isArray(value)){
+    return value.map(v => v === undefined ? null : deepStripUndefined(v));
+  }
+  if(value && typeof value === 'object'){
+    const out = {};
+    Object.keys(value).forEach(k=>{
+      const v = value[k];
+      out[k] = v === undefined ? null : deepStripUndefined(v);
+    });
+    return out;
+  }
+  return value;
+}
+
 let cloudSaveTimer = null;
 let lastPushedSyncedAt = null;
 async function flushCloudSaveNow(){
@@ -4582,9 +4632,10 @@ async function flushCloudSaveNow(){
   if(!cloudSyncEnabled || !currentUid || applyingRemoteChange) return;
   try{
     const payload = stripStaticFieldsForStorage(state);
+    payload.weeks = weeksToFirestoreSafe(payload.weeks);
     payload._syncedAt = Date.now();
     lastPushedSyncedAt = payload._syncedAt;
-    await firestoreDocRef().set(payload);
+    await firestoreDocRef().set(deepStripUndefined(payload));
     setSyncStatus('synced', payload._syncedAt);
   }catch(e){
     console.warn('Falha ao sincronizar com a nuvem:', e);
@@ -4618,7 +4669,9 @@ async function fetchCloudState(){
   try{
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
     const doc = await Promise.race([firestoreDocRef().get(), timeout]);
-    return { data: doc.exists ? doc.data() : null, failed: false };
+    const data = doc.exists ? doc.data() : null;
+    if(data && data.weeks) data.weeks = weeksFromFirestoreSafe(data.weeks);
+    return { data, failed: false };
   }catch(e){
     console.warn('Não foi possível buscar dados da nuvem (usando cache local):', e);
     return { data: null, failed: true };
@@ -4713,6 +4766,7 @@ function startRealtimeSync(){
       const remoteData = snapshot.data();
       // skip re-applying a change we ourselves just pushed and got echoed back
       if(remoteData._syncedAt && remoteData._syncedAt === lastPushedSyncedAt) return;
+      if(remoteData.weeks) remoteData.weeks = weeksFromFirestoreSafe(remoteData.weeks);
       // If this tab has a local edit queued but not yet pushed to Firestore (saveStateSoon's
       // debounce timer still pending), skip applying this remote snapshot for now instead of
       // silently discarding that local edit. The pending save will go through in well under
